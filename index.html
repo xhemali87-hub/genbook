@@ -19,59 +19,44 @@
 <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
 </header>
 
-<main class="p-4 grid md:grid-cols-2 gap-6">
+<main class="p-6">
 
-<!-- FAMILLE -->
-<div>
-
-<div class="bg-white p-4 rounded shadow mb-4">
-
-<button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-3">
+<div class="mb-4">
+<button onclick="createFamily()" class="bg-blue-600 text-white px-4 py-2 rounded">
 Créer ma famille
 </button>
-
-<input id="inviteEmail" placeholder="Email à inviter" class="border p-2 w-full mb-2">
-
-<button onclick="sendInvite()" class="bg-green-600 text-white w-full p-2">
-Inviter
-</button>
-
 </div>
 
-<!-- AJOUT PERSONNE -->
-<div class="bg-white p-4 rounded shadow">
+<div id="tree" class="flex flex-col items-center"></div>
+
+</main>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+
+<div class="bg-white p-6 rounded w-80">
+
+<h2 class="font-bold mb-4">Ajouter</h2>
 
 <input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
 <input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
-<input id="naissance" type="date" class="border p-2 w-full mb-2">
 
-<select id="sexe" class="border p-2 w-full mb-2">
-<option value="">Sexe</option>
-<option value="Homme">Homme</option>
-<option value="Femme">Femme</option>
+<select id="actionType" class="border p-2 w-full mb-2">
+<option value="spouse">Conjoint</option>
+<option value="child">Enfant</option>
 </select>
 
-<select id="type" class="border p-2 w-full mb-2">
-<option value="root">Personne racine</option>
-<option value="spouse">Ajouter conjoint</option>
-<option value="child">Ajouter enfant</option>
-</select>
+<button onclick="confirmAdd()" class="bg-green-600 text-white w-full p-2 mb-2">
+Ajouter
+</button>
 
-<select id="target" class="border p-2 w-full mb-2"></select>
-
-<button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">Ajouter</button>
+<button onclick="closeModal()" class="bg-gray-400 text-white w-full p-2">
+Annuler
+</button>
 
 </div>
 
 </div>
-
-<!-- ARBRE -->
-<div class="bg-white p-4 rounded shadow">
-<h2 class="font-bold mb-4">Arbre visuel</h2>
-<div id="tree"></div>
-</div>
-
-</main>
 
 <script>
 
@@ -85,61 +70,18 @@ projectId: "genbook-2ea8a"
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+/* VARIABLES */
 let currentFamilyId = null;
 let members = [];
+let selectedPerson = null;
+
 const tree = document.getElementById("tree");
 
-/* LOGIN AUTO */
-firebase.auth().onAuthStateChanged(async user=>{
-if(user){
-
-/* check invitation */
-const invites = await db.collection("invites")
-.where("email","==",user.email)
-.get();
-
-if(!invites.empty){
-currentFamilyId = invites.docs[0].data().familyId;
-loadMembers();
-}
-
-}
-});
-
-/* LOGOUT */
-function logout(){
-firebase.auth().signOut();
-}
-
-/* CREER FAMILLE */
+/* CREATE FAMILY */
 async function createFamily(){
-
-const user = firebase.auth().currentUser;
-
-const doc = await db.collection("families").add({
-owner: user.uid
-});
-
+const doc = await db.collection("families").add({});
 currentFamilyId = doc.id;
-
 alert("Famille créée");
-
-}
-
-/* INVITER */
-async function sendInvite(){
-
-const email = document.getElementById("inviteEmail").value;
-
-if(!email) return alert("Email");
-
-await db.collection("invites").add({
-email,
-familyId: currentFamilyId
-});
-
-alert("Invitation envoyée");
-
 }
 
 /* LOAD */
@@ -151,44 +93,52 @@ const snap = await db.collection("members")
 
 members = snap.docs.map(d=>({id:d.id,...d.data()}));
 
-updateTargets();
 renderTree();
 
 }
 
-/* TARGET */
-function updateTargets(){
-const target = document.getElementById("target");
-target.innerHTML = "";
-members.forEach(m=>{
-target.innerHTML += `<option value="${m.id}">${m.prenom}</option>`;
+/* ADD ROOT */
+async function addRoot(){
+await db.collection("members").add({
+familyId: currentFamilyId,
+prenom:"Moi"
 });
+loadMembers();
 }
 
-/* ADD PERSON */
-async function addPerson(){
+/* CLICK PERSON */
+function openModal(personId){
+selectedPerson = personId;
+document.getElementById("modal").classList.remove("hidden");
+}
+
+function closeModal(){
+document.getElementById("modal").classList.add("hidden");
+}
+
+/* CONFIRM ADD */
+async function confirmAdd(){
 
 const prenom = document.getElementById("prenom").value;
 const nom = document.getElementById("nom").value;
-const sexe = document.getElementById("sexe").value;
-const type = document.getElementById("type").value;
-const targetId = document.getElementById("target").value;
+const type = document.getElementById("actionType").value;
 
 const ref = await db.collection("members").add({
 familyId: currentFamilyId,
 prenom,
-nom,
-sexe
+nom
 });
 
-const personId = ref.id;
+const newId = ref.id;
 
 if(type==="spouse"){
+
 await db.collection("couples").add({
 familyId: currentFamilyId,
-husbandId: targetId,
-wifeId: personId
+husbandId: selectedPerson,
+wifeId: newId
 });
+
 }
 
 if(type==="child"){
@@ -201,7 +151,7 @@ let coupleId = null;
 
 couples.forEach(c=>{
 const d = c.data();
-if(d.husbandId===targetId || d.wifeId===targetId){
+if(d.husbandId===selectedPerson || d.wifeId===selectedPerson){
 coupleId = c.id;
 }
 });
@@ -215,25 +165,30 @@ prenom
 
 }
 
+closeModal();
 loadMembers();
 
 }
 
-/* TREE */
+/* RENDER TREE */
 async function renderTree(){
 
 tree.innerHTML = "";
 
+if(members.length===0){
+
+tree.innerHTML = `
+<button onclick="addRoot()" class="bg-blue-500 text-white px-4 py-2 rounded">
+Créer personne racine
+</button>
+`;
+
+return;
+}
+
 const couplesSnap = await db.collection("couples")
 .where("familyId","==",currentFamilyId)
 .get();
-
-if(couplesSnap.empty){
-members.forEach(m=>{
-tree.innerHTML += `<div class="bg-blue-100 p-2 mb-2">${m.prenom}</div>`;
-});
-return;
-}
 
 for(const doc of couplesSnap.docs){
 
@@ -243,14 +198,21 @@ const h = members.find(m=>m.id===c.husbandId);
 const w = members.find(m=>m.id===c.wifeId);
 
 let html = `
-<div class="flex flex-col items-center mb-6">
+<div class="mb-10 flex flex-col items-center">
 
-<div class="flex gap-4">
-<div class="bg-blue-200 px-3 py-2">👨 ${h?.prenom}</div>
-<div class="bg-pink-200 px-3 py-2">👩 ${w?.prenom}</div>
+<div class="flex gap-6">
+
+<div onclick="openModal('${h.id}')" class="cursor-pointer bg-blue-200 px-4 py-3 rounded shadow hover:scale-105 transition">
+👨 ${h.prenom}
 </div>
 
-<div class="mt-2 flex gap-2">
+<div onclick="openModal('${w.id}')" class="cursor-pointer bg-pink-200 px-4 py-3 rounded shadow hover:scale-105 transition">
+👩 ${w.prenom}
+</div>
+
+</div>
+
+<div class="mt-4 flex gap-3">
 `;
 
 const childrenSnap = await db.collection("children")
@@ -258,7 +220,10 @@ const childrenSnap = await db.collection("children")
 .get();
 
 childrenSnap.forEach(ch=>{
-html += `<div class="bg-green-200 px-2 py-1">👶 ${ch.data().prenom}</div>`;
+html += `
+<div onclick="openModal('${h.id}')" class="cursor-pointer bg-green-200 px-3 py-2 rounded shadow">
+👶 ${ch.data().prenom}
+</div>`;
 });
 
 html += `</div></div>`;
