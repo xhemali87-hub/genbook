@@ -19,15 +19,13 @@
 <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
 </header>
 
-<main class="p-6">
+<main class="p-6 flex flex-col items-center">
 
-<div class="mb-4">
-<button onclick="createFamily()" class="bg-blue-600 text-white px-4 py-2 rounded">
-Créer ma famille
+<button onclick="createFamily()" class="bg-blue-600 text-white px-4 py-2 rounded mb-6">
+Créer famille
 </button>
-</div>
 
-<div id="tree" class="flex flex-col items-center"></div>
+<div id="tree" class="relative"></div>
 
 </main>
 
@@ -39,12 +37,6 @@ Créer ma famille
 <h2 class="font-bold mb-4">Ajouter</h2>
 
 <input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
-<input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
-
-<select id="actionType" class="border p-2 w-full mb-2">
-<option value="spouse">Conjoint</option>
-<option value="child">Enfant</option>
-</select>
 
 <button onclick="confirmAdd()" class="bg-green-600 text-white w-full p-2 mb-2">
 Ajouter
@@ -70,10 +62,10 @@ projectId: "genbook-2ea8a"
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* VARIABLES */
 let currentFamilyId = null;
 let members = [];
 let selectedPerson = null;
+let selectedAction = null;
 
 const tree = document.getElementById("tree");
 
@@ -81,7 +73,7 @@ const tree = document.getElementById("tree");
 async function createFamily(){
 const doc = await db.collection("families").add({});
 currentFamilyId = doc.id;
-alert("Famille créée");
+loadMembers();
 }
 
 /* LOAD */
@@ -106,9 +98,40 @@ prenom:"Moi"
 loadMembers();
 }
 
-/* CLICK PERSON */
-function openModal(personId){
-selectedPerson = personId;
+/* BULLE MENU */
+function openBubble(id){
+
+document.querySelectorAll(".bubble").forEach(b=>b.remove());
+
+selectedPerson = id;
+
+const el = document.getElementById("person-"+id);
+
+const bubble = document.createElement("div");
+bubble.className = "bubble absolute bg-white shadow-lg rounded p-2 text-sm";
+
+bubble.style.top = el.offsetTop - 60 + "px";
+bubble.style.left = el.offsetLeft + "px";
+
+bubble.innerHTML = `
+<div onclick="chooseAction('son')" class="cursor-pointer">👦 Garçon</div>
+<div onclick="chooseAction('daughter')" class="cursor-pointer">👧 Fille</div>
+<div onclick="chooseAction('spouse')" class="cursor-pointer">❤️ Conjoint</div>
+<div onclick="chooseAction('sibling')" class="cursor-pointer">👨‍👩‍👧 Frère / sœur</div>
+`;
+
+tree.appendChild(bubble);
+
+}
+
+/* SELECT ACTION */
+function chooseAction(action){
+selectedAction = action;
+openModal();
+}
+
+/* MODAL */
+function openModal(){
 document.getElementById("modal").classList.remove("hidden");
 }
 
@@ -116,32 +139,29 @@ function closeModal(){
 document.getElementById("modal").classList.add("hidden");
 }
 
-/* CONFIRM ADD */
+/* CONFIRM */
 async function confirmAdd(){
 
 const prenom = document.getElementById("prenom").value;
-const nom = document.getElementById("nom").value;
-const type = document.getElementById("actionType").value;
 
 const ref = await db.collection("members").add({
 familyId: currentFamilyId,
-prenom,
-nom
+prenom
 });
 
 const newId = ref.id;
 
-if(type==="spouse"){
-
+/* SPOUSE */
+if(selectedAction==="spouse"){
 await db.collection("couples").add({
 familyId: currentFamilyId,
 husbandId: selectedPerson,
 wifeId: newId
 });
-
 }
 
-if(type==="child"){
+/* CHILD */
+if(selectedAction==="son" || selectedAction==="daughter"){
 
 const couples = await db.collection("couples")
 .where("familyId","==",currentFamilyId)
@@ -162,7 +182,15 @@ coupleId,
 prenom
 });
 }
+}
 
+/* SIBLING */
+if(selectedAction==="sibling"){
+await db.collection("siblings").add({
+familyId: currentFamilyId,
+personId: selectedPerson,
+siblingId: newId
+});
 }
 
 closeModal();
@@ -170,67 +198,23 @@ loadMembers();
 
 }
 
-/* RENDER TREE */
+/* RENDER */
 async function renderTree(){
 
 tree.innerHTML = "";
 
 if(members.length===0){
-
-tree.innerHTML = `
-<button onclick="addRoot()" class="bg-blue-500 text-white px-4 py-2 rounded">
-Créer personne racine
-</button>
-`;
-
+tree.innerHTML = `<button onclick="addRoot()" class="bg-blue-500 text-white px-4 py-2 rounded">Créer racine</button>`;
 return;
 }
 
-const couplesSnap = await db.collection("couples")
-.where("familyId","==",currentFamilyId)
-.get();
-
-for(const doc of couplesSnap.docs){
-
-const c = doc.data();
-
-const h = members.find(m=>m.id===c.husbandId);
-const w = members.find(m=>m.id===c.wifeId);
-
-let html = `
-<div class="mb-10 flex flex-col items-center">
-
-<div class="flex gap-6">
-
-<div onclick="openModal('${h.id}')" class="cursor-pointer bg-blue-200 px-4 py-3 rounded shadow hover:scale-105 transition">
-👨 ${h.prenom}
-</div>
-
-<div onclick="openModal('${w.id}')" class="cursor-pointer bg-pink-200 px-4 py-3 rounded shadow hover:scale-105 transition">
-👩 ${w.prenom}
-</div>
-
-</div>
-
-<div class="mt-4 flex gap-3">
-`;
-
-const childrenSnap = await db.collection("children")
-.where("coupleId","==",doc.id)
-.get();
-
-childrenSnap.forEach(ch=>{
-html += `
-<div onclick="openModal('${h.id}')" class="cursor-pointer bg-green-200 px-3 py-2 rounded shadow">
-👶 ${ch.data().prenom}
+members.forEach(m=>{
+tree.innerHTML += `
+<div id="person-${m.id}" onclick="openBubble('${m.id}')" 
+class="cursor-pointer bg-blue-200 p-3 m-2 inline-block rounded shadow hover:scale-105 transition">
+👤 ${m.prenom}
 </div>`;
 });
-
-html += `</div></div>`;
-
-tree.innerHTML += html;
-
-}
 
 }
 
