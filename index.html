@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 </head>
 
 <body class="bg-gray-100">
@@ -20,6 +21,7 @@
 
 <main class="p-4 grid md:grid-cols-2 gap-6">
 
+<!-- FAMILLE -->
 <div>
 
 <div class="bg-white p-4 rounded shadow mb-4">
@@ -30,7 +32,9 @@
 <button onclick="joinFamily()" class="bg-green-600 text-white w-full p-2">Rejoindre</button>
 </div>
 
+<!-- AJOUT PERSONNE -->
 <div class="bg-white p-4 rounded shadow">
+
 <input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
 <input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
 <input id="naissance" type="date" class="border p-2 w-full mb-2">
@@ -49,14 +53,14 @@
 
 <select id="target" class="border p-2 w-full mb-2"></select>
 
-<button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">
-Ajouter
-</button>
-</div>
+<button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">Ajouter</button>
 
 </div>
 
-<div class="bg-white p-4 rounded shadow overflow-x-auto">
+</div>
+
+<!-- ARBRE -->
+<div class="bg-white p-4 rounded shadow">
 <h2 class="font-bold mb-4">Arbre visuel</h2>
 <div id="tree"></div>
 </div>
@@ -65,89 +69,116 @@ Ajouter
 
 <script>
 
+/* CONFIG FIREBASE */
 const firebaseConfig = {
 apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
 authDomain: "genbook-2ea8a.firebaseapp.com",
-projectId: "genbook-2ea8a"
+projectId: "genbook-2ea8a",
+storageBucket: "genbook-2ea8a.appspot.com",
+messagingSenderId: "541161690715",
+appId: "1:541161690715:web:5b2aafcf8af0fa2baf117e"
 };
 
 firebase.initializeApp(firebaseConfig);
-
-const auth = firebase.auth();
 const db = firebase.firestore();
 
-let userId = null;
+/* VARIABLES */
 let currentFamilyId = null;
 let members = [];
+const tree = document.getElementById("tree");
 
-auth.signInAnonymously();
-
-auth.onAuthStateChanged(user=>{
-if(user){
-userId = user.uid;
-}
-});
-
+/* LOGOUT */
 function logout(){
-auth.signOut();
+firebase.auth().signOut();
 }
 
-function generateCode(){
-return Math.random().toString(36).substring(2,8).toUpperCase();
-}
+/* CREER FAMILLE */
+async function createFamily(){
 
-function createFamily(){
+const name = document.getElementById("familyName").value;
 
-const name = familyName.value;
+if(!name) return alert("Nom famille");
 
-if(!name){
-alert("Entre un nom");
-return;
-}
+const code = Math.random().toString(36).substring(2,8).toUpperCase();
 
-const code = generateCode();
+const doc = await db.collection("families").add({
+name,
+code
+});
 
-db.collection("families").add({name,code}).then(doc=>{
 currentFamilyId = doc.id;
-alert("Code famille: "+code);
-loadMembers();
-});
+
+alert("Code famille : " + code);
+
 }
 
-function joinFamily(){
+/* REJOINDRE */
+async function joinFamily(){
 
-db.collection("families").where("code","==",familyCode.value)
-.get().then(s=>{
-s.forEach(doc=>{
-currentFamilyId = doc.id;
+const code = document.getElementById("familyCode").value;
+
+const snap = await db.collection("families")
+.where("code","==",code)
+.get();
+
+if(snap.empty) return alert("Code invalide");
+
+currentFamilyId = snap.docs[0].id;
+
 loadMembers();
-});
-});
+
 }
 
+/* LOAD */
+async function loadMembers(){
+
+const snap = await db.collection("members")
+.where("familyId","==",currentFamilyId)
+.get();
+
+members = snap.docs.map(d=>({id:d.id,...d.data()}));
+
+updateTargets();
+renderTree();
+
+}
+
+/* SELECT */
+function updateTargets(){
+
+const target = document.getElementById("target");
+target.innerHTML = "";
+
+members.forEach(m=>{
+target.innerHTML += `<option value="${m.id}">${m.prenom} ${m.nom}</option>`;
+});
+
+}
+
+/* AJOUT PERSONNE */
 async function addPerson(){
 
-if(!currentFamilyId){
-alert("Crée une famille");
-return;
-}
+if(!currentFamilyId) return alert("Créer/Rejoindre famille");
 
-const data = {
+const prenom = document.getElementById("prenom").value;
+const nom = document.getElementById("nom").value;
+const naissance = document.getElementById("naissance").value;
+const sexe = document.getElementById("sexe").value;
+const type = document.getElementById("type").value;
+const targetId = document.getElementById("target").value;
+
+const personRef = await db.collection("members").add({
 familyId: currentFamilyId,
-prenom: prenom.value,
-nom: nom.value,
-naissance: naissance.value,
-sexe: sexe.value
-};
+prenom,
+nom,
+naissance,
+sexe
+});
 
-const typeVal = type.value;
-
-const personRef = await db.collection("members").add(data);
 const personId = personRef.id;
 
-/* CONJOINT */
-if(typeVal === "spouse"){
-const targetId = target.value;
+if(type==="spouse"){
+
 const targetP = members.find(m=>m.id===targetId);
 
 await db.collection("couples").add({
@@ -155,85 +186,55 @@ familyId: currentFamilyId,
 husbandId: targetP.sexe==="Homme"?targetId:personId,
 wifeId: targetP.sexe==="Femme"?targetId:personId
 });
+
 }
 
-/* ENFANT */
-if(typeVal === "child"){
+if(type==="child"){
 
-const targetId = target.value;
-
-const couplesSnap = await db.collection("couples")
+const couples = await db.collection("couples")
 .where("familyId","==",currentFamilyId)
 .get();
 
 let coupleId = null;
 
-couplesSnap.forEach(doc=>{
-const c = doc.data();
-if(c.husbandId===targetId || c.wifeId===targetId){
-coupleId = doc.id;
+couples.forEach(c=>{
+const d = c.data();
+if(d.husbandId===targetId || d.wifeId===targetId){
+coupleId = c.id;
 }
 });
 
 if(coupleId){
 await db.collection("children").add({
 coupleId,
-prenom: data.prenom,
-nom: data.nom,
-sexe: data.sexe
+prenom,
+sexe
 });
-await db.collection("members").doc(personId).delete();
 }
+
 }
 
 loadMembers();
+
 }
 
-function loadMembers(){
-
-db.collection("members").where("familyId","==",currentFamilyId)
-.onSnapshot(s=>{
-
-members = [];
-target.innerHTML='';
-
-s.forEach(doc=>{
-let d=doc.data();
-d.id=doc.id;
-members.push(d);
-
-let o=document.createElement("option");
-o.value=d.id;
-o.textContent=d.prenom+" "+d.nom;
-target.appendChild(o);
-});
-
-renderTree();
-
-});
-}
-
+/* RENDER TREE CLEAN */
 async function renderTree(){
 
-tree.innerHTML = '';
+tree.innerHTML = "";
 
-/* SI PAS DE COUPLE → afficher racines */
-if(members.length > 0){
-
-tree.innerHTML += `<div class="mb-6 text-gray-500">Ajoute un conjoint pour voir l'arbre complet</div>`;
-
-members.forEach(m=>{
-tree.innerHTML += `
-<div class="mb-2 bg-blue-100 p-2 rounded">
-👤 ${m.prenom} ${m.nom}
-</div>`;
-});
-}
-
-/* COUPLES */
 const couplesSnap = await db.collection("couples")
 .where("familyId","==",currentFamilyId)
 .get();
+
+if(couplesSnap.empty){
+
+members.forEach(m=>{
+tree.innerHTML += `<div class="bg-blue-100 p-2 mb-2 rounded">👤 ${m.prenom}</div>`;
+});
+
+return;
+}
 
 for(const doc of couplesSnap.docs){
 
@@ -243,25 +244,17 @@ const h = members.find(m=>m.id===c.husbandId);
 const w = members.find(m=>m.id===c.wifeId);
 
 let html = `
-<div class="flex flex-col items-center mb-10">
+<div class="flex flex-col items-center mb-8">
 
-  <div class="flex items-center gap-4">
+<div class="flex items-center gap-4">
+<div class="bg-blue-200 px-4 py-2 rounded">👨 ${h?.prenom || "?"}</div>
+<div class="w-10 h-1 bg-gray-400"></div>
+<div class="bg-pink-200 px-4 py-2 rounded">👩 ${w?.prenom || "?"}</div>
+</div>
 
-    <div class="bg-blue-200 px-4 py-2 rounded shadow">
-      👨 ${h?.prenom || "?"}
-    </div>
+<div class="w-1 h-6 bg-gray-400"></div>
 
-    <div class="w-10 h-1 bg-gray-400"></div>
-
-    <div class="bg-pink-200 px-4 py-2 rounded shadow">
-      👩 ${w?.prenom || "?"}
-    </div>
-
-  </div>
-
-  <div class="w-1 h-6 bg-gray-400"></div>
-
-  <div class="flex gap-4 flex-wrap justify-center mt-2">
+<div class="flex gap-3 flex-wrap justify-center mt-2">
 `;
 
 const childrenSnap = await db.collection("children")
@@ -270,7 +263,7 @@ const childrenSnap = await db.collection("children")
 
 childrenSnap.forEach(ch=>{
 const d = ch.data();
-html += `<div class="bg-green-200 px-3 py-2 rounded shadow">👶 ${d.prenom}</div>`;
+html += `<div class="bg-green-200 px-3 py-2 rounded">👶 ${d.prenom}</div>`;
 });
 
 html += `</div></div>`;
