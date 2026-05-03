@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Genbook PRO</title>
+
 <script src="https://cdn.tailwindcss.com"></script>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 </head>
 
 <body class="bg-gray-100">
@@ -19,7 +21,9 @@
 
 <main class="p-4 grid md:grid-cols-2 gap-6">
 
+<!-- LEFT -->
 <div>
+
 <div class="bg-white p-4 rounded shadow mb-4">
 
 <input id="familyName" placeholder="Nom famille" class="border p-2 w-full mb-2">
@@ -50,13 +54,17 @@
 
 <select id="target" class="border p-2 w-full mb-2"></select>
 
-<button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">Ajouter</button>
+<button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">
+Ajouter
+</button>
 
 </div>
+
 </div>
 
-<div class="bg-white p-4 rounded shadow">
-<h2 class="font-bold mb-4">Arbre</h2>
+<!-- RIGHT -->
+<div class="bg-white p-4 rounded shadow overflow-x-auto">
+<h2 class="font-bold mb-4">Arbre visuel</h2>
 <div id="tree"></div>
 </div>
 
@@ -98,11 +106,17 @@ return Math.random().toString(36).substring(2,8).toUpperCase();
 function createFamily(){
 
 const name = familyName.value;
+
+if(!name){
+alert("Entre un nom");
+return;
+}
+
 const code = generateCode();
 
 db.collection("families").add({name,code}).then(doc=>{
 currentFamilyId = doc.id;
-alert("Code: "+code);
+alert("Code famille: "+code);
 loadMembers();
 });
 }
@@ -119,6 +133,11 @@ loadMembers();
 }
 
 async function addPerson(){
+
+if(!currentFamilyId){
+alert("Crée une famille");
+return;
+}
 
 const data = {
 familyId: currentFamilyId,
@@ -172,7 +191,6 @@ sexe: data.sexe
 });
 
 await db.collection("members").doc(personId).delete();
-
 }
 
 }
@@ -206,7 +224,7 @@ renderTree();
 
 async function renderTree(){
 
-tree.innerHTML='';
+tree.innerHTML = '';
 
 const couplesSnap = await db.collection("couples")
 .where("familyId","==",currentFamilyId)
@@ -214,26 +232,53 @@ const couplesSnap = await db.collection("couples")
 
 for(const doc of couplesSnap.docs){
 
-const c=doc.data();
+const c = doc.data();
 
-const h=members.find(m=>m.id===c.husbandId);
-const w=members.find(m=>m.id===c.wifeId);
+const h = members.find(m=>m.id===c.husbandId);
+const w = members.find(m=>m.id===c.wifeId);
 
-let html=`<div class="mb-4 p-3 border rounded">
-<b>💑 ${h?.prenom||"?"} & ${w?.prenom||"?"}</b>`;
+let html = `
+<div class="flex flex-col items-center mb-10">
+
+  <div class="flex items-center gap-4">
+
+    <div class="bg-blue-200 px-4 py-2 rounded shadow">
+      👨 ${h?.prenom || "?"}
+    </div>
+
+    <div class="w-10 h-1 bg-gray-400"></div>
+
+    <div class="bg-pink-200 px-4 py-2 rounded shadow">
+      👩 ${w?.prenom || "?"}
+    </div>
+
+  </div>
+
+  <div class="w-1 h-6 bg-gray-400"></div>
+
+  <div class="flex gap-4 flex-wrap justify-center mt-2">
+`;
 
 const childrenSnap = await db.collection("children")
 .where("coupleId","==",doc.id)
 .get();
 
-childrenSnap.forEach(ch=>{
-let d=ch.data();
-html+=`<div class="ml-6 mt-2 bg-green-100 p-2 rounded">👶 ${d.prenom}</div>`;
+childrenSnap.forEach(ch => {
+const d = ch.data();
+
+html += `
+<div class="bg-green-200 px-3 py-2 rounded shadow">
+👶 ${d.prenom}
+</div>
+`;
 });
 
-html+=`</div>`;
+html += `
+  </div>
+</div>
+`;
 
-tree.innerHTML+=html;
+tree.innerHTML += html;
 
 }
 
