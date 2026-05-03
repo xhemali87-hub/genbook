@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Genbook PRO</title>
+  <title>Genbook PRO - Multi Couple</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -13,7 +12,7 @@
 <body class="bg-gray-100">
 
 <header class="bg-white shadow p-4 flex justify-between">
-  <h1 class="font-bold">Genbook 🌳 PRO</h1>
+  <h1 class="font-bold">Genbook 🌳 Multi Couple</h1>
   <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
 </header>
 
@@ -26,7 +25,6 @@
   <h2 class="font-bold mb-2">Famille</h2>
   <input id="familyName" placeholder="Nom famille" class="border p-2 w-full mb-2">
   <button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-2">Créer</button>
-
   <input id="familyCode" placeholder="Code" class="border p-2 w-full mb-2">
   <button onclick="joinFamily()" class="bg-green-600 text-white w-full p-2">Rejoindre</button>
 </div>
@@ -45,23 +43,20 @@
   </select>
 
   <select id="typeAjout" class="border p-2 w-full mb-2">
-    <option value="">Type relation</option>
     <option value="root">Personne racine</option>
     <option value="child">Enfant</option>
     <option value="spouse">Conjoint</option>
     <option value="sibling">Frère / sœur</option>
   </select>
 
-  <select id="target" class="border p-2 w-full mb-2">
-    <option value="">Personne liée</option>
-  </select>
+  <select id="target" class="border p-2 w-full mb-2"></select>
 
   <button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">Ajouter</button>
 </div>
 
 </div>
 
-<!-- RIGHT TREE -->
+<!-- TREE -->
 <div class="bg-white p-4 rounded-xl shadow">
   <h2 class="font-bold mb-4">Arbre</h2>
   <div id="tree"></div>
@@ -70,7 +65,6 @@
 </main>
 
 <script>
-
 const firebaseConfig = {
   apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
   authDomain: "genbook-2ea8a.firebaseapp.com",
@@ -84,25 +78,21 @@ const db = firebase.firestore();
 let userId = null;
 let currentFamilyId = null;
 let members = [];
+let relationships = [];
 
 function logout(){ auth.signOut(); }
-
 function generateCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
 
 auth.onAuthStateChanged(user => {
-  if(user){
-    userId = user.uid;
-    loadUser();
-  }
+  if(user){ userId = user.uid; loadUser(); }
 });
 
 function createFamily(){
-  const name = familyName.value;
   const code = generateCode();
-  db.collection("families").add({ name, code }).then(doc=>{
+  db.collection("families").add({ name: familyName.value, code }).then(doc=>{
     currentFamilyId = doc.id;
     db.collection("users").doc(userId).set({ familyId: doc.id });
-    alert("Code famille: " + code);
+    alert("Code: " + code);
   });
 }
 
@@ -118,10 +108,7 @@ function joinFamily(){
 
 function loadUser(){
   db.collection("users").doc(userId).get().then(doc=>{
-    if(doc.exists){
-      currentFamilyId = doc.data().familyId;
-      loadMembers();
-    }
+    if(doc.exists){ currentFamilyId = doc.data().familyId; loadMembers(); }
   });
 }
 
@@ -137,98 +124,92 @@ function addPerson(){
   };
 
   const type = typeAjout.value;
-  const targetId = target.value;
+  const t = target.value;
 
-  if(type === "root"){
+  if(type === "root") db.collection("members").add(data);
+
+  if(type === "child" && t){
+    const p = members.find(m=>m.id===t);
+    if(p.sexe === "Homme") data.fatherId = p.id;
+    if(p.sexe === "Femme") data.motherId = p.id;
     db.collection("members").add(data);
   }
 
-  if(type === "child" && targetId){
-    const parent = members.find(m => m.id === targetId);
-
-    if(parent.sexe === "Homme") data.fatherId = parent.id;
-    if(parent.sexe === "Femme") data.motherId = parent.id;
-
+  if(type === "sibling" && t){
+    const s = members.find(m=>m.id===t);
+    data.fatherId = s.fatherId;
+    data.motherId = s.motherId;
     db.collection("members").add(data);
   }
 
-  if(type === "sibling" && targetId){
-    const sibling = members.find(m => m.id === targetId);
-    data.fatherId = sibling.fatherId;
-    data.motherId = sibling.motherId;
-
-    db.collection("members").add(data);
-  }
-
-  if(type === "spouse" && targetId){
+  if(type === "spouse" && t){
     db.collection("relationships").add({
-      person1: targetId,
+      familyId: currentFamilyId,
+      person1: t,
       person2: null,
-      type: "couple",
       prenom: data.prenom,
-      nom: data.nom
+      nom: data.nom,
+      sexe: data.sexe
     });
   }
 }
 
 function loadMembers(){
   db.collection("members").where("familyId","==",currentFamilyId)
-  .onSnapshot(snapshot=>{
+  .onSnapshot(s=>{
     members = [];
-    target.innerHTML = '<option value="">Personne liée</option>';
-
-    snapshot.forEach(doc=>{
-      const d = doc.data();
-      d.id = doc.id;
+    target.innerHTML = '';
+    s.forEach(doc=>{
+      let d = doc.data(); d.id = doc.id;
       members.push(d);
-
-      const opt = document.createElement('option');
-      opt.value = doc.id;
-      opt.textContent = d.prenom + ' ' + d.nom;
-      target.appendChild(opt);
+      let o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.prenom + ' ' + d.nom;
+      target.appendChild(o);
     });
+    loadRelations();
+  });
+}
 
+function loadRelations(){
+  db.collection("relationships").where("familyId","==",currentFamilyId)
+  .onSnapshot(s=>{
+    relationships = [];
+    s.forEach(doc=>relationships.push(doc.data()));
     renderTree();
   });
 }
 
-function calculAge(date){
-  if(!date) return '';
-  const t = new Date();
-  const d = new Date(date);
-  let age = t.getFullYear() - d.getFullYear();
-  return age + ' ans';
-}
+function calculAge(d){ if(!d) return ''; return (new Date().getFullYear() - new Date(d).getFullYear())+' ans'; }
 
 function renderTree(){
   tree.innerHTML = '';
 
-  const roots = members.filter(m => !m.fatherId && !m.motherId);
+  members.forEach(m=>{
+    const couples = relationships.filter(r=>r.person1===m.id);
 
-  roots.forEach(root => {
-    tree.innerHTML += buildNode(root);
+    let block = `<div class='mb-4'>
+      <div class='bg-blue-200 p-2 rounded'><strong>${m.prenom} ${m.nom}</strong> (${calculAge(m.naissance)})</div>`;
+
+    couples.forEach(c=>{
+      block += `<div class='ml-6 mt-2 bg-pink-100 p-2 rounded'>
+        Conjoint: ${c.prenom || 'Nouveau'} ${c.nom || ''}
+      </div>`;
+
+      const children = members.filter(ch => ch.fatherId===m.id || ch.motherId===m.id);
+
+      children.forEach(ch=>{
+        block += `<div class='ml-10 bg-green-100 p-2 mt-1 rounded'>
+          👶 ${ch.prenom} ${ch.nom} (${calculAge(ch.naissance)})
+        </div>`;
+      });
+    });
+
+    block += '</div>';
+    tree.innerHTML += block;
   });
 }
-
-function buildNode(m){
-  const children = members.filter(c => c.fatherId === m.id || c.motherId === m.id);
-
-  let html = `<div class='ml-4 border-l pl-3'>
-    <div class='bg-blue-100 p-2 rounded mb-1'>
-      <strong>${m.prenom} ${m.nom}</strong><br>
-      ${calculAge(m.naissance)} - ${m.sexe}
-    </div>`;
-
-  children.forEach(c => {
-    html += buildNode(c);
-  });
-
-  html += '</div>';
-  return html;
-}
-
 </script>
 
 </body>
 </html>
-
