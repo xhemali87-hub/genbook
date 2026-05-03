@@ -9,7 +9,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
 </head>
 
 <body class="bg-gray-100">
@@ -21,21 +20,17 @@
 
 <main class="p-4 grid md:grid-cols-2 gap-6">
 
-<!-- LEFT -->
 <div>
 
 <div class="bg-white p-4 rounded shadow mb-4">
-
 <input id="familyName" placeholder="Nom famille" class="border p-2 w-full mb-2">
 <button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-2">Créer</button>
 
 <input id="familyCode" placeholder="Code" class="border p-2 w-full mb-2">
 <button onclick="joinFamily()" class="bg-green-600 text-white w-full p-2">Rejoindre</button>
-
 </div>
 
 <div class="bg-white p-4 rounded shadow">
-
 <input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
 <input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
 <input id="naissance" type="date" class="border p-2 w-full mb-2">
@@ -57,12 +52,10 @@
 <button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">
 Ajouter
 </button>
-
 </div>
 
 </div>
 
-<!-- RIGHT -->
 <div class="bg-white p-4 rounded shadow overflow-x-auto">
 <h2 class="font-bold mb-4">Arbre visuel</h2>
 <div id="tree"></div>
@@ -152,8 +145,8 @@ const typeVal = type.value;
 const personRef = await db.collection("members").add(data);
 const personId = personRef.id;
 
+/* CONJOINT */
 if(typeVal === "spouse"){
-
 const targetId = target.value;
 const targetP = members.find(m=>m.id===targetId);
 
@@ -164,6 +157,7 @@ wifeId: targetP.sexe==="Femme"?targetId:personId
 });
 }
 
+/* ENFANT */
 if(typeVal === "child"){
 
 const targetId = target.value;
@@ -182,17 +176,14 @@ coupleId = doc.id;
 });
 
 if(coupleId){
-
 await db.collection("children").add({
 coupleId,
 prenom: data.prenom,
 nom: data.nom,
 sexe: data.sexe
 });
-
 await db.collection("members").doc(personId).delete();
 }
-
 }
 
 loadMembers();
@@ -226,6 +217,20 @@ async function renderTree(){
 
 tree.innerHTML = '';
 
+/* SI PAS DE COUPLE → afficher racines */
+if(members.length > 0){
+
+tree.innerHTML += `<div class="mb-6 text-gray-500">Ajoute un conjoint pour voir l'arbre complet</div>`;
+
+members.forEach(m=>{
+tree.innerHTML += `
+<div class="mb-2 bg-blue-100 p-2 rounded">
+👤 ${m.prenom} ${m.nom}
+</div>`;
+});
+}
+
+/* COUPLES */
 const couplesSnap = await db.collection("couples")
 .where("familyId","==",currentFamilyId)
 .get();
@@ -263,20 +268,12 @@ const childrenSnap = await db.collection("children")
 .where("coupleId","==",doc.id)
 .get();
 
-childrenSnap.forEach(ch => {
+childrenSnap.forEach(ch=>{
 const d = ch.data();
-
-html += `
-<div class="bg-green-200 px-3 py-2 rounded shadow">
-👶 ${d.prenom}
-</div>
-`;
+html += `<div class="bg-green-200 px-3 py-2 rounded shadow">👶 ${d.prenom}</div>`;
 });
 
-html += `
-  </div>
-</div>
-`;
+html += `</div></div>`;
 
 tree.innerHTML += html;
 
