@@ -1,76 +1,223 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Genbook Test</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<title>Genbook PRO</title>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 </head>
-<body class="bg-gray-100 text-gray-800">
 
-<section class="min-h-screen flex flex-col items-center justify-center text-center px-6">
-  <h1 class="text-4xl font-bold mb-4">Genbook</h1>
-  <p class="mb-6">Teste ton lien familial</p>
+<body class="bg-gray-100">
 
-  <div class="bg-white p-6 rounded-2xl shadow w-80">
-    <input id="email" type="email" placeholder="Email" class="border p-2 w-full mb-3 rounded">
-    <input id="password" type="password" placeholder="Mot de passe" class="border p-2 w-full mb-3 rounded">
-    <button onclick="signup()" class="bg-black text-white px-4 py-2 rounded w-full mb-2">Créer compte</button>
-    <button onclick="login()" class="bg-gray-800 text-white px-4 py-2 rounded w-full">Se connecter</button>
-  </div>
+<header class="bg-white p-4 flex justify-between shadow">
+<h1 class="font-bold">Genbook 🌳</h1>
+<button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
+</header>
 
-  <div class="bg-white p-6 rounded-2xl shadow w-80 mt-6">
-    <h2 class="font-bold mb-3">Tester lien familial</h2>
-    <input id="name1" placeholder="Nom 1" class="border p-2 w-full mb-2 rounded">
-    <input id="name2" placeholder="Nom 2" class="border p-2 w-full mb-2 rounded">
-    <button onclick="checkLink()" class="bg-green-600 text-white px-4 py-2 rounded w-full">Vérifier</button>
-    <p id="result" class="mt-3"></p>
-  </div>
-</section>
+<main class="p-6 flex flex-col items-center">
+
+<button onclick="createFamily()" class="bg-blue-600 text-white px-4 py-2 rounded mb-6">
+Créer famille
+</button>
+
+<div id="tree" class="relative"></div>
+
+</main>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+
+<div class="bg-white p-6 rounded w-80">
+
+<h2 class="font-bold mb-4">Ajouter</h2>
+
+<input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
+
+<button onclick="confirmAdd()" class="bg-green-600 text-white w-full p-2 mb-2">
+Ajouter
+</button>
+
+<button onclick="closeModal()" class="bg-gray-400 text-white w-full p-2">
+Annuler
+</button>
+
+</div>
+
+</div>
 
 <script>
+
+/* FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
-  authDomain: "genbook-2ea8a.firebaseapp.com",
-  projectId: "genbook-2ea8a",
-  storageBucket: "genbook-2ea8a.firebasestorage.app",
-  messagingSenderId: "541161690715",
-  appId: "1:541161690715:web:5b2aafcf8af0fa2baf117e",
-  measurementId: "G-LT88NQ0DFF"
+apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
+authDomain: "genbook-2ea8a.firebaseapp.com",
+projectId: "genbook-2ea8a"
 };
 
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
+const db = firebase.firestore();
 
-function signup() {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  auth.createUserWithEmailAndPassword(email, password)
-    .then(() => alert("Compte créé"))
-    .catch(err => alert(err.message));
+let currentFamilyId = null;
+let members = [];
+let selectedPerson = null;
+let selectedAction = null;
+
+const tree = document.getElementById("tree");
+
+/* CREATE FAMILY */
+async function createFamily(){
+const doc = await db.collection("families").add({});
+currentFamilyId = doc.id;
+loadMembers();
 }
 
-function login() {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  auth.signInWithEmailAndPassword(email, password)
-    .then(() => alert("Connecté"))
-    .catch(err => alert(err.message));
+/* LOAD */
+async function loadMembers(){
+
+const snap = await db.collection("members")
+.where("familyId","==",currentFamilyId)
+.get();
+
+members = snap.docs.map(d=>({id:d.id,...d.data()}));
+
+renderTree();
+
 }
 
-function checkLink() {
-  const n1 = document.getElementById('name1').value.toLowerCase();
-  const n2 = document.getElementById('name2').value.toLowerCase();
-  if(n1 === n2) {
-    document.getElementById('result').innerText = "⚠️ Même nom → possible lien";
-  } else {
-    document.getElementById('result').innerText = "✅ Aucun lien détecté (simulation)";
-  }
+/* ADD ROOT */
+async function addRoot(){
+await db.collection("members").add({
+familyId: currentFamilyId,
+prenom:"Moi"
+});
+loadMembers();
 }
+
+/* BULLE MENU */
+function openBubble(id){
+
+document.querySelectorAll(".bubble").forEach(b=>b.remove());
+
+selectedPerson = id;
+
+const el = document.getElementById("person-"+id);
+
+const bubble = document.createElement("div");
+bubble.className = "bubble absolute bg-white shadow-lg rounded p-2 text-sm";
+
+bubble.style.top = el.offsetTop - 60 + "px";
+bubble.style.left = el.offsetLeft + "px";
+
+bubble.innerHTML = `
+<div onclick="chooseAction('son')" class="cursor-pointer">👦 Garçon</div>
+<div onclick="chooseAction('daughter')" class="cursor-pointer">👧 Fille</div>
+<div onclick="chooseAction('spouse')" class="cursor-pointer">❤️ Conjoint</div>
+<div onclick="chooseAction('sibling')" class="cursor-pointer">👨‍👩‍👧 Frère / sœur</div>
+`;
+
+tree.appendChild(bubble);
+
+}
+
+/* SELECT ACTION */
+function chooseAction(action){
+selectedAction = action;
+openModal();
+}
+
+/* MODAL */
+function openModal(){
+document.getElementById("modal").classList.remove("hidden");
+}
+
+function closeModal(){
+document.getElementById("modal").classList.add("hidden");
+}
+
+/* CONFIRM */
+async function confirmAdd(){
+
+const prenom = document.getElementById("prenom").value;
+
+const ref = await db.collection("members").add({
+familyId: currentFamilyId,
+prenom
+});
+
+const newId = ref.id;
+
+/* SPOUSE */
+if(selectedAction==="spouse"){
+await db.collection("couples").add({
+familyId: currentFamilyId,
+husbandId: selectedPerson,
+wifeId: newId
+});
+}
+
+/* CHILD */
+if(selectedAction==="son" || selectedAction==="daughter"){
+
+const couples = await db.collection("couples")
+.where("familyId","==",currentFamilyId)
+.get();
+
+let coupleId = null;
+
+couples.forEach(c=>{
+const d = c.data();
+if(d.husbandId===selectedPerson || d.wifeId===selectedPerson){
+coupleId = c.id;
+}
+});
+
+if(coupleId){
+await db.collection("children").add({
+coupleId,
+prenom
+});
+}
+}
+
+/* SIBLING */
+if(selectedAction==="sibling"){
+await db.collection("siblings").add({
+familyId: currentFamilyId,
+personId: selectedPerson,
+siblingId: newId
+});
+}
+
+closeModal();
+loadMembers();
+
+}
+
+/* RENDER */
+async function renderTree(){
+
+tree.innerHTML = "";
+
+if(members.length===0){
+tree.innerHTML = `<button onclick="addRoot()" class="bg-blue-500 text-white px-4 py-2 rounded">Créer racine</button>`;
+return;
+}
+
+members.forEach(m=>{
+tree.innerHTML += `
+<div id="person-${m.id}" onclick="openBubble('${m.id}')" 
+class="cursor-pointer bg-blue-200 p-3 m-2 inline-block rounded shadow hover:scale-105 transition">
+👤 ${m.prenom}
+</div>`;
+});
+
+}
+
 </script>
 
 </body>
