@@ -34,12 +34,23 @@
 
 <div class="bg-white p-4 rounded-xl shadow">
   <h2 class="font-bold mb-2">Ajouter membre</h2>
+
   <input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
-  <input id=
+  <input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
+  <input id="age" placeholder="Âge" class="border p-2 w-full mb-2">
+
+  <select id="sexe" class="border p-2 w-full mb-2">
+    <option value="">Sexe</option>
+    <option value="Homme">Homme</option>
+    <option value="Femme">Femme</option>
+  </select>
+
   <input id="role" placeholder="Rôle" class="border p-2 w-full mb-2">
+
   <select id="parent" class="border p-2 w-full mb-2">
     <option value="">Parent (optionnel)</option>
   </select>
+
   <button onclick="addMember()" class="bg-purple-600 text-white w-full p-2">Ajouter</button>
 </div>
 
@@ -72,9 +83,6 @@ let members = [];
 function logout(){ auth.signOut(); }
 
 function generateCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
-
-function signup(){ auth.createUserWithEmailAndPassword(email.value, password.value); }
-function login(){ auth.signInWithEmailAndPassword(email.value, password.value); }
 
 auth.onAuthStateChanged(user => {
   if(user){
@@ -115,13 +123,19 @@ function loadUser(){
 }
 
 function addMember(){
-  const name = document.getElementById('name').value;
+  const prenom = document.getElementById('prenom').value;
+  const nom = document.getElementById('nom').value;
+  const age = document.getElementById('age').value;
+  const sexe = document.getElementById('sexe').value;
   const role = document.getElementById('role').value;
   const parent = document.getElementById('parent').value;
 
   db.collection("members").add({
     familyId: currentFamilyId,
-    name,
+    prenom,
+    nom,
+    age,
+    sexe,
     role,
     parent
   });
@@ -141,7 +155,7 @@ function loadMembers(){
 
       const opt = document.createElement('option');
       opt.value = doc.id;
-      opt.textContent = d.name;
+      opt.textContent = d.prenom + ' ' + d.nom;
       select.appendChild(opt);
     });
 
@@ -166,7 +180,10 @@ function buildNode(member){
   const children = members.filter(m => m.parent === member.id);
 
   let html = `<div class='ml-2 border-l pl-2'>
-    <div class='bg-blue-100 p-2 rounded'>${member.name} (${member.role})</div>`;
+    <div class='bg-blue-100 p-2 rounded'>
+      <strong>${member.prenom} ${member.nom}</strong><br>
+      ${member.role} - ${member.age || '?'} ans - ${member.sexe || ''}
+    </div>`;
 
   children.forEach(child => {
     html += buildNode(child);
