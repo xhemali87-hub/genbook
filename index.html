@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Genbook</title>
+<title>Genbook PRO</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 
@@ -14,14 +14,20 @@
 <body class="bg-gray-100">
 
 <header class="bg-white p-4 shadow flex justify-between">
-<h1 class="font-bold">Genbook 🌳</h1>
-<button onclick="createFamily()" class="bg-blue-600 text-white px-3 py-1 rounded">
-Créer famille
-</button>
+<h1 class="font-bold">Genbook 🌳 PRO</h1>
 </header>
 
-<main class="p-6 flex justify-center">
-<div id="tree" class="w-full max-w-4xl"></div>
+<main class="p-6 flex flex-col items-center gap-4">
+
+<input id="familyName" placeholder="Nom de famille"
+class="border p-2 w-64">
+
+<button onclick="createFamily()" class="bg-blue-600 text-white px-4 py-2 rounded">
+Créer famille
+</button>
+
+<div id="tree" class="mt-6"></div>
+
 </main>
 
 <script>
@@ -36,21 +42,35 @@ projectId: "genbook-2ea8a"
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* STATE */
 let familyId = null;
 let members = [];
 
 /* CREATE FAMILY */
 async function createFamily(){
-const doc = await db.collection("families").add({});
-familyId = doc.id;
-loadMembers();
+
+const name = document.getElementById("familyName").value;
+
+if(!name){
+alert("Nom obligatoire");
+return;
 }
 
-/* LOAD MEMBERS */
-async function loadMembers(){
+const fam = await db.collection("families").add({name});
+familyId = fam.id;
 
-if(!familyId) return;
+/* CREATE ROOT */
+await db.collection("members").add({
+familyId,
+prenom: name,
+root: true
+});
+
+load();
+
+}
+
+/* LOAD */
+async function load(){
 
 const snap = await db.collection("members")
 .where("familyId","==",familyId)
@@ -62,13 +82,61 @@ render();
 
 }
 
-/* ADD ROOT */
-async function addRoot(){
+/* MENU */
+function menu(id){
+
+const action = prompt(
+`1 Père
+2 Mère
+3 Garçon
+4 Fille
+5 Conjoint
+6 Frère / sœur`
+);
+
+if(!action) return;
+
+if(action==1) addParent(id,"father");
+if(action==2) addParent(id,"mother");
+if(action==3) addChild(id,"garcon");
+if(action==4) addChild(id,"fille");
+if(action==5) addSpouse(id);
+if(action==6) addSibling(id);
+
+}
+
+/* ADD PARENT */
+async function addParent(id,type){
+
+const name = prompt("Nom ?");
+if(!name) return;
+
 await db.collection("members").add({
 familyId,
-prenom:"Moi"
+prenom:name,
+childOf:id,
+role:type
 });
-loadMembers();
+
+load();
+
+}
+
+/* ADD CHILD */
+async function addChild(id,type){
+
+const name = prompt("Nom ?");
+if(!name) return;
+
+await db.collection("members").add({
+familyId,
+prenom:name,
+parent:id,
+role:type
+});
+
+load();
+
 }
 
 /* ADD SPOUSE */
@@ -77,140 +145,46 @@ async function addSpouse(id){
 const name = prompt("Nom conjoint ?");
 if(!name) return;
 
-const ref = await db.collection("members").add({
+await db.collection("members").add({
 familyId,
-prenom:name
+prenom:name,
+spouseOf:id
 });
 
-await db.collection("couples").add({
-familyId,
-person1:id,
-person2:ref.id
-});
+load();
 
-loadMembers();
 }
 
-/* ADD CHILD */
-async function addChild(id){
+/* ADD SIBLING */
+async function addSibling(id){
 
-const name = prompt("Nom enfant ?");
+const name = prompt("Nom ?");
 if(!name) return;
 
-const couples = await db.collection("couples")
-.where("familyId","==",familyId)
-.get();
-
-let coupleId = null;
-
-couples.forEach(c=>{
-const d=c.data();
-if(d.person1===id || d.person2===id){
-coupleId = c.id;
-}
+await db.collection("members").add({
+familyId,
+prenom:name,
+siblingOf:id
 });
 
-if(!coupleId){
-alert("Ajoute un conjoint d'abord");
-return;
-}
+load();
 
-await db.collection("children").add({
-coupleId,
-prenom:name
-});
-
-loadMembers();
 }
 
 /* RENDER */
-async function render(){
+function render(){
 
 const tree = document.getElementById("tree");
 tree.innerHTML = "";
 
-/* NO DATA */
-if(members.length===0){
-tree.innerHTML = `
-<button onclick="addRoot()" class="bg-blue-500 text-white px-4 py-2 rounded">
-Créer personne racine
-</button>`;
-return;
-}
-
-/* GET COUPLES */
-const couplesSnap = await db.collection("couples")
-.where("familyId","==",familyId)
-.get();
-
-/* DISPLAY */
-for(const doc of couplesSnap.docs){
-
-const c = doc.data();
-
-const p1 = members.find(m=>m.id===c.person1);
-const p2 = members.find(m=>m.id===c.person2);
-
-let html = `
-<div class="bg-white p-4 rounded shadow mb-6">
-
-<div class="flex gap-4 justify-center mb-3">
-
-<div class="bg-blue-200 px-4 py-2 rounded cursor-pointer"
-onclick="menu('${p1.id}')">
-👤 ${p1?.prenom}
-</div>
-
-<div class="bg-pink-200 px-4 py-2 rounded cursor-pointer"
-onclick="menu('${p2.id}')">
-👤 ${p2?.prenom}
-</div>
-
-</div>
-
-<div class="flex gap-2 justify-center flex-wrap">
-`;
-
-/* CHILDREN */
-const childrenSnap = await db.collection("children")
-.where("coupleId","==",doc.id)
-.get();
-
-childrenSnap.forEach(ch=>{
-html += `
-<div class="bg-green-200 px-3 py-2 rounded">
-👶 ${ch.data().prenom}
-</div>`;
-});
-
-html += `</div></div>`;
-
-tree.innerHTML += html;
-
-}
-
-/* SHOW ROOT IF NO COUPLE */
-if(couplesSnap.empty){
 members.forEach(m=>{
 tree.innerHTML += `
-<div class="bg-blue-100 p-3 rounded mb-2 cursor-pointer"
-onclick="menu('${m.id}')">
+<div onclick="menu('${m.id}')"
+class="bg-white p-3 m-2 rounded shadow cursor-pointer inline-block hover:bg-blue-100">
 👤 ${m.prenom}
-</div>`;
+</div>
+`;
 });
-}
-
-}
-
-/* MENU */
-function menu(id){
-
-const action = prompt(
-"1: Ajouter conjoint\n2: Ajouter enfant"
-);
-
-if(action=="1") addSpouse(id);
-if(action=="2") addChild(id);
 
 }
 
