@@ -15,7 +15,7 @@
 <body class="bg-gray-100">
 
 <header class="bg-white p-4 flex justify-between shadow">
-<h1 class="font-bold">Genbook 🌳 PRO</h1>
+<h1 class="font-bold">Genbook 🌳</h1>
 <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
 </header>
 
@@ -25,11 +25,17 @@
 <div>
 
 <div class="bg-white p-4 rounded shadow mb-4">
-<input id="familyName" placeholder="Nom famille" class="border p-2 w-full mb-2">
-<button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-2">Créer</button>
 
-<input id="familyCode" placeholder="Code" class="border p-2 w-full mb-2">
-<button onclick="joinFamily()" class="bg-green-600 text-white w-full p-2">Rejoindre</button>
+<button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-3">
+Créer ma famille
+</button>
+
+<input id="inviteEmail" placeholder="Email à inviter" class="border p-2 w-full mb-2">
+
+<button onclick="sendInvite()" class="bg-green-600 text-white w-full p-2">
+Inviter
+</button>
+
 </div>
 
 <!-- AJOUT PERSONNE -->
@@ -69,23 +75,36 @@
 
 <script>
 
-/* CONFIG FIREBASE */
+/* FIREBASE */
 const firebaseConfig = {
 apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
 authDomain: "genbook-2ea8a.firebaseapp.com",
-projectId: "genbook-2ea8a",
-storageBucket: "genbook-2ea8a.appspot.com",
-messagingSenderId: "541161690715",
-appId: "1:541161690715:web:5b2aafcf8af0fa2baf117e"
+projectId: "genbook-2ea8a"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-/* VARIABLES */
 let currentFamilyId = null;
 let members = [];
 const tree = document.getElementById("tree");
+
+/* LOGIN AUTO */
+firebase.auth().onAuthStateChanged(async user=>{
+if(user){
+
+/* check invitation */
+const invites = await db.collection("invites")
+.where("email","==",user.email)
+.get();
+
+if(!invites.empty){
+currentFamilyId = invites.docs[0].data().familyId;
+loadMembers();
+}
+
+}
+});
 
 /* LOGOUT */
 function logout(){
@@ -95,37 +114,31 @@ firebase.auth().signOut();
 /* CREER FAMILLE */
 async function createFamily(){
 
-const name = document.getElementById("familyName").value;
-
-if(!name) return alert("Nom famille");
-
-const code = Math.random().toString(36).substring(2,8).toUpperCase();
+const user = firebase.auth().currentUser;
 
 const doc = await db.collection("families").add({
-name,
-code
+owner: user.uid
 });
 
 currentFamilyId = doc.id;
 
-alert("Code famille : " + code);
+alert("Famille créée");
 
 }
 
-/* REJOINDRE */
-async function joinFamily(){
+/* INVITER */
+async function sendInvite(){
 
-const code = document.getElementById("familyCode").value;
+const email = document.getElementById("inviteEmail").value;
 
-const snap = await db.collection("families")
-.where("code","==",code)
-.get();
+if(!email) return alert("Email");
 
-if(snap.empty) return alert("Code invalide");
+await db.collection("invites").add({
+email,
+familyId: currentFamilyId
+});
 
-currentFamilyId = snap.docs[0].id;
-
-loadMembers();
+alert("Invitation envoyée");
 
 }
 
@@ -143,50 +156,39 @@ renderTree();
 
 }
 
-/* SELECT */
+/* TARGET */
 function updateTargets(){
-
 const target = document.getElementById("target");
 target.innerHTML = "";
-
 members.forEach(m=>{
-target.innerHTML += `<option value="${m.id}">${m.prenom} ${m.nom}</option>`;
+target.innerHTML += `<option value="${m.id}">${m.prenom}</option>`;
 });
-
 }
 
-/* AJOUT PERSONNE */
+/* ADD PERSON */
 async function addPerson(){
-
-if(!currentFamilyId) return alert("Créer/Rejoindre famille");
 
 const prenom = document.getElementById("prenom").value;
 const nom = document.getElementById("nom").value;
-const naissance = document.getElementById("naissance").value;
 const sexe = document.getElementById("sexe").value;
 const type = document.getElementById("type").value;
 const targetId = document.getElementById("target").value;
 
-const personRef = await db.collection("members").add({
+const ref = await db.collection("members").add({
 familyId: currentFamilyId,
 prenom,
 nom,
-naissance,
 sexe
 });
 
-const personId = personRef.id;
+const personId = ref.id;
 
 if(type==="spouse"){
-
-const targetP = members.find(m=>m.id===targetId);
-
 await db.collection("couples").add({
 familyId: currentFamilyId,
-husbandId: targetP.sexe==="Homme"?targetId:personId,
-wifeId: targetP.sexe==="Femme"?targetId:personId
+husbandId: targetId,
+wifeId: personId
 });
-
 }
 
 if(type==="child"){
@@ -207,8 +209,7 @@ coupleId = c.id;
 if(coupleId){
 await db.collection("children").add({
 coupleId,
-prenom,
-sexe
+prenom
 });
 }
 
@@ -218,7 +219,7 @@ loadMembers();
 
 }
 
-/* RENDER TREE CLEAN */
+/* TREE */
 async function renderTree(){
 
 tree.innerHTML = "";
@@ -228,11 +229,9 @@ const couplesSnap = await db.collection("couples")
 .get();
 
 if(couplesSnap.empty){
-
 members.forEach(m=>{
-tree.innerHTML += `<div class="bg-blue-100 p-2 mb-2 rounded">👤 ${m.prenom}</div>`;
+tree.innerHTML += `<div class="bg-blue-100 p-2 mb-2">${m.prenom}</div>`;
 });
-
 return;
 }
 
@@ -244,17 +243,14 @@ const h = members.find(m=>m.id===c.husbandId);
 const w = members.find(m=>m.id===c.wifeId);
 
 let html = `
-<div class="flex flex-col items-center mb-8">
+<div class="flex flex-col items-center mb-6">
 
-<div class="flex items-center gap-4">
-<div class="bg-blue-200 px-4 py-2 rounded">👨 ${h?.prenom || "?"}</div>
-<div class="w-10 h-1 bg-gray-400"></div>
-<div class="bg-pink-200 px-4 py-2 rounded">👩 ${w?.prenom || "?"}</div>
+<div class="flex gap-4">
+<div class="bg-blue-200 px-3 py-2">👨 ${h?.prenom}</div>
+<div class="bg-pink-200 px-3 py-2">👩 ${w?.prenom}</div>
 </div>
 
-<div class="w-1 h-6 bg-gray-400"></div>
-
-<div class="flex gap-3 flex-wrap justify-center mt-2">
+<div class="mt-2 flex gap-2">
 `;
 
 const childrenSnap = await db.collection("children")
@@ -262,8 +258,7 @@ const childrenSnap = await db.collection("children")
 .get();
 
 childrenSnap.forEach(ch=>{
-const d = ch.data();
-html += `<div class="bg-green-200 px-3 py-2 rounded">👶 ${d.prenom}</div>`;
+html += `<div class="bg-green-200 px-2 py-1">👶 ${ch.data().prenom}</div>`;
 });
 
 html += `</div></div>`;
