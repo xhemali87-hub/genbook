@@ -1,77 +1,92 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Genbook PRO - Multi Couple</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<meta charset="UTF-8">
+<title>Genbook PRO</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
+
 <body class="bg-gray-100">
 
-<header class="bg-white shadow p-4 flex justify-between">
-  <h1 class="font-bold">Genbook 🌳 Multi Couple</h1>
+<header class="bg-white p-4 flex justify-between shadow">
+  <h1 class="font-bold">Genbook 🌳</h1>
   <button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
 </header>
 
 <main class="p-4 grid md:grid-cols-2 gap-6">
 
 <!-- LEFT -->
-<div class="space-y-4">
+<div>
 
-<div class="bg-white p-4 rounded-xl shadow">
-  <h2 class="font-bold mb-2">Famille</h2>
-  <input id="familyName" placeholder="Nom famille" class="border p-2 w-full mb-2">
-  <button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-2">Créer</button>
-  <input id="familyCode" placeholder="Code" class="border p-2 w-full mb-2">
-  <button onclick="joinFamily()" class="bg-green-600 text-white w-full p-2">Rejoindre</button>
-</div>
+<div class="bg-white p-4 rounded shadow mb-4">
+<h2 class="font-bold mb-2">Famille</h2>
 
-<div class="bg-white p-4 rounded-xl shadow">
-  <h2 class="font-bold mb-2">Ajouter personne</h2>
+<input id="familyName" placeholder="Nom famille" class="border p-2 w-full mb-2">
 
-  <input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
-  <input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
-  <input id="naissance" type="date" class="border p-2 w-full mb-2">
+<button onclick="createFamily()" class="bg-blue-600 text-white w-full p-2 mb-2">
+Créer
+</button>
 
-  <select id="sexe" class="border p-2 w-full mb-2">
-    <option value="">Sexe</option>
-    <option value="Homme">Homme</option>
-    <option value="Femme">Femme</option>
-  </select>
+<input id="familyCode" placeholder="Code" class="border p-2 w-full mb-2">
 
-  <select id="typeAjout" class="border p-2 w-full mb-2">
-    <option value="root">Personne racine</option>
-    <option value="child">Enfant</option>
-    <option value="spouse">Conjoint</option>
-    <option value="sibling">Frère / sœur</option>
-  </select>
-
-  <select id="target" class="border p-2 w-full mb-2"></select>
-
-  <button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">Ajouter</button>
-</div>
+<button onclick="joinFamily()" class="bg-green-600 text-white w-full p-2">
+Rejoindre
+</button>
 
 </div>
 
-<!-- TREE -->
-<div class="bg-white p-4 rounded-xl shadow">
-  <h2 class="font-bold mb-4">Arbre</h2>
-  <div id="tree"></div>
+<div class="bg-white p-4 rounded shadow">
+<h2 class="font-bold mb-2">Ajouter personne</h2>
+
+<input id="prenom" placeholder="Prénom" class="border p-2 w-full mb-2">
+<input id="nom" placeholder="Nom" class="border p-2 w-full mb-2">
+<input id="naissance" type="date" class="border p-2 w-full mb-2">
+
+<select id="sexe" class="border p-2 w-full mb-2">
+<option value="">Sexe</option>
+<option value="Homme">Homme</option>
+<option value="Femme">Femme</option>
+</select>
+
+<select id="typeAjout" class="border p-2 w-full mb-2">
+<option value="root">Personne racine</option>
+<option value="child">Enfant</option>
+<option value="spouse">Conjoint</option>
+<option value="sibling">Frère / sœur</option>
+</select>
+
+<select id="target" class="border p-2 w-full mb-2"></select>
+
+<button onclick="addPerson()" class="bg-purple-600 text-white w-full p-2">
+Ajouter
+</button>
+
+</div>
+
+</div>
+
+<!-- RIGHT -->
+<div class="bg-white p-4 rounded shadow">
+<h2 class="font-bold mb-4">Arbre</h2>
+<div id="tree"></div>
 </div>
 
 </main>
 
 <script>
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
-  authDomain: "genbook-2ea8a.firebaseapp.com",
-  projectId: "genbook-2ea8a"
+apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
+authDomain: "genbook-2ea8a.firebaseapp.com",
+projectId: "genbook-2ea8a"
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const auth = firebase.auth();
 const db = firebase.firestore();
 
@@ -80,135 +95,239 @@ let currentFamilyId = null;
 let members = [];
 let relationships = [];
 
-function logout(){ auth.signOut(); }
-function generateCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
-
 auth.onAuthStateChanged(user => {
-  if(user){ userId = user.uid; loadUser(); }
+if(user){
+userId = user.uid;
+loadUser();
+}
 });
 
+function logout(){
+auth.signOut();
+}
+
+function generateCode(){
+return Math.random().toString(36).substring(2,8).toUpperCase();
+}
+
 function createFamily(){
-  const code = generateCode();
-  db.collection("families").add({ name: familyName.value, code }).then(doc=>{
-    currentFamilyId = doc.id;
-    db.collection("users").doc(userId).set({ familyId: doc.id });
-    alert("Code: " + code);
-  });
+
+const name = document.getElementById('familyName').value;
+
+if(!name){
+alert("Entre un nom de famille");
+return;
+}
+
+const code = generateCode();
+
+db.collection("families").add({
+name: name,
+code: code
+}).then(doc => {
+
+currentFamilyId = doc.id;
+
+db.collection("users").doc(userId).set({
+familyId: doc.id
+});
+
+alert("Famille créée ! Code: " + code);
+
+loadMembers();
+
+});
+
 }
 
 function joinFamily(){
-  db.collection("families").where("code","==",familyCode.value).get().then(s=>{
-    s.forEach(doc=>{
-      currentFamilyId = doc.id;
-      db.collection("users").doc(userId).set({ familyId: doc.id });
-      loadMembers();
-    });
-  });
+
+const code = document.getElementById('familyCode').value;
+
+db.collection("families").where("code","==",code).get().then(s => {
+
+s.forEach(doc => {
+
+currentFamilyId = doc.id;
+
+db.collection("users").doc(userId).set({
+familyId: doc.id
+});
+
+loadMembers();
+
+});
+
+});
+
 }
 
 function loadUser(){
-  db.collection("users").doc(userId).get().then(doc=>{
-    if(doc.exists){ currentFamilyId = doc.data().familyId; loadMembers(); }
-  });
+
+db.collection("users").doc(userId).get().then(doc => {
+
+if(doc.exists){
+currentFamilyId = doc.data().familyId;
+loadMembers();
+}
+
+});
+
 }
 
 function addPerson(){
-  const data = {
-    familyId: currentFamilyId,
-    prenom: prenom.value,
-    nom: nom.value,
-    naissance: naissance.value,
-    sexe: sexe.value,
-    fatherId: null,
-    motherId: null
-  };
 
-  const type = typeAjout.value;
-  const t = target.value;
+if(!currentFamilyId){
+alert("Crée ou rejoins une famille");
+return;
+}
 
-  if(type === "root") db.collection("members").add(data);
+const data = {
+familyId: currentFamilyId,
+prenom: prenom.value,
+nom: nom.value,
+naissance: naissance.value,
+sexe: sexe.value,
+fatherId: null,
+motherId: null
+};
 
-  if(type === "child" && t){
-    const p = members.find(m=>m.id===t);
-    if(p.sexe === "Homme") data.fatherId = p.id;
-    if(p.sexe === "Femme") data.motherId = p.id;
-    db.collection("members").add(data);
-  }
+const type = typeAjout.value;
+const t = target.value;
 
-  if(type === "sibling" && t){
-    const s = members.find(m=>m.id===t);
-    data.fatherId = s.fatherId;
-    data.motherId = s.motherId;
-    db.collection("members").add(data);
-  }
+if(type === "root"){
+db.collection("members").add(data);
+}
 
-  if(type === "spouse" && t){
-    db.collection("relationships").add({
-      familyId: currentFamilyId,
-      person1: t,
-      person2: null,
-      prenom: data.prenom,
-      nom: data.nom,
-      sexe: data.sexe
-    });
-  }
+if(type === "child" && t){
+
+const parent = members.find(m => m.id === t);
+
+if(parent.sexe === "Homme") data.fatherId = parent.id;
+if(parent.sexe === "Femme") data.motherId = parent.id;
+
+db.collection("members").add(data);
+}
+
+if(type === "sibling" && t){
+
+const s = members.find(m => m.id === t);
+
+data.fatherId = s.fatherId;
+data.motherId = s.motherId;
+
+db.collection("members").add(data);
+}
+
+if(type === "spouse" && t){
+
+db.collection("relationships").add({
+familyId: currentFamilyId,
+person1: t,
+prenom: data.prenom,
+nom: data.nom,
+sexe: data.sexe
+});
+
+}
+
 }
 
 function loadMembers(){
-  db.collection("members").where("familyId","==",currentFamilyId)
-  .onSnapshot(s=>{
-    members = [];
-    target.innerHTML = '';
-    s.forEach(doc=>{
-      let d = doc.data(); d.id = doc.id;
-      members.push(d);
-      let o = document.createElement('option');
-      o.value = d.id;
-      o.textContent = d.prenom + ' ' + d.nom;
-      target.appendChild(o);
-    });
-    loadRelations();
-  });
+
+db.collection("members").where("familyId","==",currentFamilyId)
+.onSnapshot(s => {
+
+members = [];
+target.innerHTML = '';
+
+s.forEach(doc => {
+
+let d = doc.data();
+d.id = doc.id;
+members.push(d);
+
+let o = document.createElement('option');
+o.value = d.id;
+o.textContent = d.prenom + " " + d.nom;
+
+target.appendChild(o);
+
+});
+
+loadRelations();
+
+});
+
 }
 
 function loadRelations(){
-  db.collection("relationships").where("familyId","==",currentFamilyId)
-  .onSnapshot(s=>{
-    relationships = [];
-    s.forEach(doc=>relationships.push(doc.data()));
-    renderTree();
-  });
+
+db.collection("relationships").where("familyId","==",currentFamilyId)
+.onSnapshot(s => {
+
+relationships = [];
+
+s.forEach(doc => relationships.push(doc.data()));
+
+renderTree();
+
+});
+
 }
 
-function calculAge(d){ if(!d) return ''; return (new Date().getFullYear() - new Date(d).getFullYear())+' ans'; }
+function age(d){
+if(!d) return '';
+return new Date().getFullYear() - new Date(d).getFullYear();
+}
 
 function renderTree(){
-  tree.innerHTML = '';
 
-  members.forEach(m=>{
-    const couples = relationships.filter(r=>r.person1===m.id);
+tree.innerHTML = '';
 
-    let block = `<div class='mb-4'>
-      <div class='bg-blue-200 p-2 rounded'><strong>${m.prenom} ${m.nom}</strong> (${calculAge(m.naissance)})</div>`;
+members.forEach(m => {
 
-    couples.forEach(c=>{
-      block += `<div class='ml-6 mt-2 bg-pink-100 p-2 rounded'>
-        Conjoint: ${c.prenom || 'Nouveau'} ${c.nom || ''}
-      </div>`;
+const couples = relationships.filter(r => r.person1 === m.id);
 
-      const children = members.filter(ch => ch.fatherId===m.id || ch.motherId===m.id);
+let html = `
+<div class="mb-4">
+<div class="bg-blue-200 p-2 rounded">
+<strong>${m.prenom} ${m.nom}</strong> (${age(m.naissance)} ans)
+</div>
+`;
 
-      children.forEach(ch=>{
-        block += `<div class='ml-10 bg-green-100 p-2 mt-1 rounded'>
-          👶 ${ch.prenom} ${ch.nom} (${calculAge(ch.naissance)})
-        </div>`;
-      });
-    });
+couples.forEach(c => {
 
-    block += '</div>';
-    tree.innerHTML += block;
-  });
+html += `
+<div class="ml-6 mt-2 bg-pink-100 p-2 rounded">
+💑 ${c.prenom} ${c.nom}
+</div>
+`;
+
+const children = members.filter(ch =>
+ch.fatherId === m.id || ch.motherId === m.id
+);
+
+children.forEach(ch => {
+
+html += `
+<div class="ml-10 bg-green-100 p-2 mt-1 rounded">
+👶 ${ch.prenom} ${ch.nom}
+</div>
+`;
+
+});
+
+});
+
+html += `</div>`;
+
+tree.innerHTML += html;
+
+});
+
 }
+
 </script>
 
 </body>
