@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genbook Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<section class="min-h-screen flex flex-col items-center justify-center text-center px-6">
+  <h1 class="text-4xl font-bold mb-4">Genbook</h1>
+  <p class="mb-6">Teste ton lien familial</p>
+
+  <div class="bg-white p-6 rounded-2xl shadow w-80">
+    <input id="email" type="email" placeholder="Email" class="border p-2 w-full mb-3 rounded">
+    <input id="password" type="password" placeholder="Mot de passe" class="border p-2 w-full mb-3 rounded">
+    <button onclick="signup()" class="bg-black text-white px-4 py-2 rounded w-full mb-2">Créer compte</button>
+    <button onclick="login()" class="bg-gray-800 text-white px-4 py-2 rounded w-full">Se connecter</button>
+  </div>
+
+  <div class="bg-white p-6 rounded-2xl shadow w-80 mt-6">
+    <h2 class="font-bold mb-3">Tester lien familial</h2>
+    <input id="name1" placeholder="Nom 1" class="border p-2 w-full mb-2 rounded">
+    <input id="name2" placeholder="Nom 2" class="border p-2 w-full mb-2 rounded">
+    <button onclick="checkLink()" class="bg-green-600 text-white px-4 py-2 rounded w-full">Vérifier</button>
+    <p id="result" class="mt-3"></p>
+  </div>
+</section>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAVbO1_ihA4_l3B0DIAN6e3UX-s9rNLva4",
+  authDomain: "genbook-2ea8a.firebaseapp.com",
+  projectId: "genbook-2ea8a",
+  storageBucket: "genbook-2ea8a.firebasestorage.app",
+  messagingSenderId: "541161690715",
+  appId: "1:541161690715:web:5b2aafcf8af0fa2baf117e",
+  measurementId: "G-LT88NQ0DFF"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+function signup() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  auth.createUserWithEmailAndPassword(email, password)
+    .then(() => alert("Compte créé"))
+    .catch(err => alert(err.message));
+}
+
+function login() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  auth.signInWithEmailAndPassword(email, password)
+    .then(() => alert("Connecté"))
+    .catch(err => alert(err.message));
+}
+
+function checkLink() {
+  const n1 = document.getElementById('name1').value.toLowerCase();
+  const n2 = document.getElementById('name2').value.toLowerCase();
+  if(n1 === n2) {
+    document.getElementById('result').innerText = "⚠️ Même nom → possible lien";
+  } else {
+    document.getElementById('result').innerText = "✅ Aucun lien détecté (simulation)";
+  }
+}
+</script>
+
+</body>
+</html>
